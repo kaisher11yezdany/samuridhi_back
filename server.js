@@ -38,6 +38,10 @@ app.use('/api/users',         require('./routes/users'));
 app.use('/api/settings',      require('./routes/settings'));
 app.use('/api/roles',         require('./routes/roles'));
 
+// Customer app routes
+app.use('/api/customer-auth',   require('./routes/customerAuth').router);
+app.use('/api/customer-portal', require('./routes/customerPortal'));
+
 app.get('/api/health', (req, res) => res.json({ status: 'ok', time: new Date() }));
 
 const PORT = process.env.PORT || 5000;
