@@ -11,7 +11,8 @@ const breakdownSchema = new mongoose.Schema({
   technician: { type: String },
   slaHours:   { type: Number, default: 24 },
   resolvedAt: { type: Date },
-  status:     { type: String, enum: ['Pending','Assigned','In Progress','Resolved','Closed'], default: 'Pending' },
+  status:       { type: String, enum: ['Pending','Assigned','In Progress','Resolved','Closed'], default: 'Pending' },
+  assignedUsers:[ { type: mongoose.Schema.Types.ObjectId, ref: 'User' } ],
 }, { timestamps: true });
 
 module.exports = mongoose.model('Breakdown', breakdownSchema);

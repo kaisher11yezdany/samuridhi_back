@@ -36,6 +36,7 @@ app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/reports',       require('./routes/reports'));
 app.use('/api/users',         require('./routes/users'));
 app.use('/api/settings',      require('./routes/settings'));
+app.use('/api/roles',         require('./routes/roles'));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', time: new Date() }));
 

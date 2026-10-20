@@ -1,5 +1,6 @@
 require('dotenv').config();
 const connectDB = require('./config/db');
+const Role = require('./models/Role');
 const User = require('./models/User');
 const Customer = require('./models/Customer');
 const Site = require('./models/Site');
@@ -25,6 +26,7 @@ const seed = async () => {
   await connectDB();
 
   await Promise.all([
+    Role.deleteMany({}),
     User.deleteMany({}), Customer.deleteMany({}), Site.deleteMany({}),
     Project.deleteMany({}), Elevator.deleteMany({}), Technician.deleteMany({}),
     Breakdown.deleteMany({}), Maintenance.deleteMany({}), Installation.deleteMany({}),
@@ -35,12 +37,51 @@ const seed = async () => {
   ]);
   console.log('Cleared all collections');
 
-  // Users
-  await User.create([
-    { username: 'admin',   password: 'Admin@123',  name: 'Admin User',    email: 'admin@elevatorx.com',   role: 'Super Admin' },
-    { username: 'manager', password: 'Manager@123', name: 'Priya Sharma',  email: 'priya@elevatorx.com',   role: 'Management' },
-    { username: 'pm1',     password: 'PM@123',      name: 'Rajesh Kumar',  email: 'rajesh@elevatorx.com',  role: 'Project Manager' },
-    { username: 'tech1',   password: 'Tech@123',    name: 'Anita Singh',   email: 'anita@elevatorx.com',   role: 'Technician' },
+  // Default Roles
+  const all = 'all', own = 'own', none = 'none';
+  const MODS = Role.MODULES;
+  const mkPerm = (view, create, edit, del) => ({ view, create, edit, delete: del });
+  const allPerm  = () => mkPerm(all,  all,  all,  all);
+  const ownPerm  = () => mkPerm(own,  own,  own,  none);
+  const viewPerm = () => mkPerm(all,  none, none, none);
+  const nonePerm = () => mkPerm(none, none, none, none);
+
+  const superAdminPerms = {};
+  MODS.forEach(m => { superAdminPerms[m] = allPerm(); });
+
+  const managementPerms = {};
+  MODS.forEach(m => {
+    managementPerms[m] = ['settings', 'users'].includes(m) ? viewPerm() : mkPerm(all, all, all, m === 'auditlogs' ? none : all);
+  });
+
+  const pmPerms = {};
+  MODS.forEach(m => {
+    if (['dashboard','notifications','elevators','spareparts','warranty'].includes(m)) pmPerms[m] = viewPerm();
+    else if (['auditlogs','settings','users','technicians','approvals','reports'].includes(m)) pmPerms[m] = nonePerm();
+    else pmPerms[m] = mkPerm(all, own, own, none);
+  });
+
+  const techPerms = {};
+  MODS.forEach(m => {
+    if (['dashboard','notifications','spareparts'].includes(m)) techPerms[m] = viewPerm();
+    else if (['breakdown','maintenance'].includes(m)) techPerms[m] = ownPerm();
+    else techPerms[m] = nonePerm();
+  });
+
+  const [roleAdmin, roleMgmt, rolePM, roleTech] = await Role.create([
+    { name: 'Super Admin',     description: 'Full system access',              isSystem: true, permissions: superAdminPerms },
+    { name: 'Management',      description: 'Company-wide view and operations',isSystem: true, permissions: managementPerms },
+    { name: 'Project Manager', description: 'Project operations and tracking', isSystem: true, permissions: pmPerms },
+    { name: 'Technician',      description: 'Field work — own assignments only',isSystem: true, permissions: techPerms },
+  ]);
+  console.log('Default roles created');
+
+  // Users (with roleId linked)
+  const [uAdmin, uManager, uPM, uTech] = await User.create([
+    { username: 'admin',   password: 'Admin@123',   name: 'Admin User',   email: 'admin@elevatorx.com',   role: 'Super Admin',     roleId: roleAdmin._id },
+    { username: 'manager', password: 'Manager@123', name: 'Priya Sharma', email: 'priya@elevatorx.com',   role: 'Management',      roleId: roleMgmt._id },
+    { username: 'pm1',     password: 'PM@123',      name: 'Rajesh Kumar', email: 'rajesh@elevatorx.com',  role: 'Project Manager', roleId: rolePM._id },
+    { username: 'tech1',   password: 'Tech@123',    name: 'Anita Singh',  email: 'anita@elevatorx.com',   role: 'Technician',      roleId: roleTech._id },
   ]);
   console.log('Users created');
 
@@ -93,21 +134,21 @@ const seed = async () => {
     { techId:'TECH-006', name:'Neha Gupta',   mobile:'94321-09876', location:'Chennai',   zone:'South', skills:'Maintenance, Service',         jobsCompleted:27, rating:4.4, status:'Available' },
   ]);
 
-  // Breakdowns
+  // Breakdowns — assign first 2 tickets to tech1 (Anita Singh) so 'own' scope works
   await Breakdown.insertMany([
-    { ticketId:'#TKT-001456', customer:'ABC Corporation',  site:'ABC Tower',    elevatorId:'ELX-BLR-000124', complaint:'Elevator Breakdown',  priority:'CRITICAL', technician:'John Sharma',  slaHours:4,  status:'In Progress' },
-    { ticketId:'#TKT-001455', customer:'Tech Solutions',   site:'Tech Park',    elevatorId:'ELX-BLR-000126', complaint:'Door Lock Issue',      priority:'HIGH',     technician:'Priya Kumar',  slaHours:8,  status:'Assigned' },
-    { ticketId:'#TKT-001454', customer:'Central Retail',   site:'Central Mall', elevatorId:'ELX-BLR-000127', complaint:'Levelling Issue',      priority:'MEDIUM',   technician:'Raj Patel',    slaHours:24, status:'Pending' },
-    { ticketId:'#TKT-001453', customer:'XYZ Limited',      site:'XYZ Complex',  elevatorId:'ELX-BLR-000125', complaint:'Noise Issue',          priority:'LOW',      technician:'Anita Singh',  slaHours:48, status:'Pending' },
-    { ticketId:'#TKT-001452', customer:'Metro Developments',site:'Metro Heights',elevatorId:'ELX-BLR-000128', complaint:'Controller Fault',     priority:'HIGH',     technician:'Vikram Reddy', slaHours:8,  status:'In Progress' },
+    { ticketId:'#TKT-001456', customer:'ABC Corporation',   site:'ABC Tower',    elevatorId:'ELX-BLR-000124', complaint:'Elevator Breakdown', priority:'CRITICAL', technician:'Anita Singh',  slaHours:4,  status:'In Progress', assignedUsers:[uTech._id] },
+    { ticketId:'#TKT-001455', customer:'Tech Solutions',    site:'Tech Park',    elevatorId:'ELX-BLR-000126', complaint:'Door Lock Issue',     priority:'HIGH',     technician:'Anita Singh',  slaHours:8,  status:'Assigned',     assignedUsers:[uTech._id] },
+    { ticketId:'#TKT-001454', customer:'Central Retail',    site:'Central Mall', elevatorId:'ELX-BLR-000127', complaint:'Levelling Issue',     priority:'MEDIUM',   technician:'Raj Patel',    slaHours:24, status:'Pending',      assignedUsers:[] },
+    { ticketId:'#TKT-001453', customer:'XYZ Limited',       site:'XYZ Complex',  elevatorId:'ELX-BLR-000125', complaint:'Noise Issue',         priority:'LOW',      technician:'John Sharma',  slaHours:48, status:'Pending',      assignedUsers:[] },
+    { ticketId:'#TKT-001452', customer:'Metro Developments', site:'Metro Heights',elevatorId:'ELX-BLR-000128', complaint:'Controller Fault',    priority:'HIGH',     technician:'Vikram Reddy', slaHours:8,  status:'In Progress',  assignedUsers:[] },
   ]);
 
-  // Maintenance
+  // Maintenance — assign 2 tasks to tech1 so 'own' scope works
   await Maintenance.insertMany([
-    { maintenanceId:'MNT-0001', elevatorId:'ELX-BLR-000124', customer:'ABC Corporation', site:'ABC Tower',    schedule:'Monthly',   dueDate:'Oct 15, 2025', technician:'John Sharma',  type:'Routine',    status:'Completed' },
-    { maintenanceId:'MNT-0002', elevatorId:'ELX-BLR-000125', customer:'XYZ Limited',     site:'XYZ Complex',  schedule:'Monthly',   dueDate:'Oct 10, 2025', technician:'Priya Kumar',  type:'Routine',    status:'In Progress' },
-    { maintenanceId:'MNT-0003', elevatorId:'ELX-BLR-000126', customer:'Tech Solutions',  site:'Tech Park',    schedule:'Quarterly', dueDate:'Oct 05, 2025', technician:'Raj Patel',    type:'Intensive',  status:'Pending' },
-    { maintenanceId:'MNT-0004', elevatorId:'ELX-BLR-000128', customer:'Metro Developments',site:'Metro Heights',schedule:'Monthly',  dueDate:'Oct 20, 2025', technician:'Vikram Reddy', type:'Routine',    status:'Scheduled' },
+    { maintenanceId:'MNT-0001', elevatorId:'ELX-BLR-000124', customer:'ABC Corporation',   site:'ABC Tower',    schedule:'Monthly',   dueDate:'Oct 15, 2025', technician:'Anita Singh',  type:'Routine',   status:'Completed',   assignedUsers:[uTech._id] },
+    { maintenanceId:'MNT-0002', elevatorId:'ELX-BLR-000125', customer:'XYZ Limited',       site:'XYZ Complex',  schedule:'Monthly',   dueDate:'Oct 10, 2025', technician:'Anita Singh',  type:'Routine',   status:'In Progress', assignedUsers:[uTech._id] },
+    { maintenanceId:'MNT-0003', elevatorId:'ELX-BLR-000126', customer:'Tech Solutions',    site:'Tech Park',    schedule:'Quarterly', dueDate:'Oct 05, 2025', technician:'Raj Patel',    type:'Intensive', status:'Pending',     assignedUsers:[] },
+    { maintenanceId:'MNT-0004', elevatorId:'ELX-BLR-000128', customer:'Metro Developments', site:'Metro Heights',schedule:'Monthly',  dueDate:'Oct 20, 2025', technician:'Vikram Reddy', type:'Routine',   status:'Scheduled',   assignedUsers:[] },
   ]);
 
   // Installations

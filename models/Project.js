@@ -12,7 +12,8 @@ const projectSchema = new mongoose.Schema({
   budget:     { type: String },
   cost:       { type: String },
   manager:    { type: String },
-  status:     { type: String, enum: ['Not Started','In Progress','Completed','Delayed','On Hold'], default: 'Not Started' },
+  status:        { type: String, enum: ['Not Started','In Progress','Completed','Delayed','On Hold'], default: 'Not Started' },
+  assignedUsers: [ { type: mongoose.Schema.Types.ObjectId, ref: 'User' } ],
 }, { timestamps: true });
 
 module.exports = mongoose.model('Project', projectSchema);

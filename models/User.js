@@ -9,6 +9,7 @@ const userSchema = new mongoose.Schema({
   phone:    { type: String },
   role:     { type: String, enum: ['Super Admin','Management','Project Manager','Site Engineer','Technician','Customer','Accounts','HR'], default: 'Management' },
   status:   { type: String, enum: ['Active','Inactive'], default: 'Active' },
+  roleId:   { type: mongoose.Schema.Types.ObjectId, ref: 'Role' },
 }, { timestamps: true });
 
 userSchema.pre('save', async function(next) {

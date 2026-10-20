@@ -12,6 +12,7 @@ const maintenanceSchema = new mongoose.Schema({
   type:          { type: String, enum: ['Routine','Intensive','Emergency'], default: 'Routine' },
   remarks:       { type: String },
   status:        { type: String, enum: ['Scheduled','Pending','In Progress','Completed','Overdue'], default: 'Scheduled' },
+  assignedUsers: [ { type: mongoose.Schema.Types.ObjectId, ref: 'User' } ],
 }, { timestamps: true });
 
 module.exports = mongoose.model('Maintenance', maintenanceSchema);
