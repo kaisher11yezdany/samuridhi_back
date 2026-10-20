@@ -16,12 +16,12 @@ router.use(customerAuth);
 // ── Dashboard summary ──────────────────────────────────────────────────────
 router.get('/dashboard', async (req, res) => {
   try {
-    const cid = req.customer.customerId;
+    const cname = req.customer.companyName;
     const [projects, elevators, tickets, maintenance] = await Promise.all([
-      Project.find({ customer: { $regex: cid, $options: 'i' } }),
-      Elevator.find({ customer: { $regex: cid, $options: 'i' } }),
-      Breakdown.find({ customer: { $regex: cid, $options: 'i' } }),
-      Maintenance.find({ customer: { $regex: cid, $options: 'i' } }),
+      Project.find({ customer: { $regex: cname, $options: 'i' } }),
+      Elevator.find({ customer: { $regex: cname, $options: 'i' } }),
+      Breakdown.find({ customer: { $regex: cname, $options: 'i' } }),
+      Maintenance.find({ customer: { $regex: cname, $options: 'i' } }),
     ]);
     res.json({
       activeProjects:    projects.filter(p => p.status === 'In Progress').length,
@@ -37,8 +37,8 @@ router.get('/dashboard', async (req, res) => {
 // ── Projects ───────────────────────────────────────────────────────────────
 router.get('/projects', async (req, res) => {
   try {
-    const cid = req.customer.customerId;
-    const projects = await Project.find({ customer: { $regex: cid, $options: 'i' } }).sort({ createdAt: -1 });
+    const cname = req.customer.companyName;
+    const projects = await Project.find({ customer: { $regex: cname, $options: 'i' } }).sort({ createdAt: -1 });
     res.json(projects);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
@@ -54,8 +54,8 @@ router.get('/projects/:id', async (req, res) => {
 // ── Elevators ──────────────────────────────────────────────────────────────
 router.get('/elevators', async (req, res) => {
   try {
-    const cid = req.customer.customerId;
-    const elevators = await Elevator.find({ customer: { $regex: cid, $options: 'i' } }).sort({ createdAt: -1 });
+    const cname = req.customer.companyName;
+    const elevators = await Elevator.find({ customer: { $regex: cname, $options: 'i' } }).sort({ createdAt: -1 });
     res.json(elevators);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
@@ -71,8 +71,8 @@ router.get('/elevators/:id', async (req, res) => {
 // ── Service Tickets (Breakdown) ────────────────────────────────────────────
 router.get('/tickets', async (req, res) => {
   try {
-    const cid = req.customer.customerId;
-    const tickets = await Breakdown.find({ customer: { $regex: cid, $options: 'i' } }).sort({ createdAt: -1 });
+    const cname = req.customer.companyName;
+    const tickets = await Breakdown.find({ customer: { $regex: cname, $options: 'i' } }).sort({ createdAt: -1 });
     res.json(tickets);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
@@ -87,7 +87,7 @@ router.get('/tickets/:id', async (req, res) => {
 
 router.post('/tickets', async (req, res) => {
   try {
-    const cid = req.customer.customerId;
+    const cid = req.customer.companyName;
     const { elevatorId, site, complaint, description, priority, category } = req.body;
     if (!complaint) return res.status(400).json({ message: 'Complaint description is required' });
 
@@ -107,8 +107,8 @@ router.post('/tickets', async (req, res) => {
 // ── Maintenance ────────────────────────────────────────────────────────────
 router.get('/maintenance', async (req, res) => {
   try {
-    const cid = req.customer.customerId;
-    const records = await Maintenance.find({ customer: { $regex: cid, $options: 'i' } }).sort({ dueDate: 1 });
+    const cname = req.customer.companyName;
+    const records = await Maintenance.find({ customer: { $regex: cname, $options: 'i' } }).sort({ dueDate: 1 });
     res.json(records);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
@@ -116,8 +116,8 @@ router.get('/maintenance', async (req, res) => {
 // ── Documents ──────────────────────────────────────────────────────────────
 router.get('/documents', async (req, res) => {
   try {
-    const cid = req.customer.customerId;
-    const docs = await Document.find({ customer: { $regex: cid, $options: 'i' } }).sort({ createdAt: -1 });
+    const cname = req.customer.companyName;
+    const docs = await Document.find({ customer: { $regex: cname, $options: 'i' } }).sort({ createdAt: -1 });
     res.json(docs);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
@@ -133,10 +133,8 @@ router.get('/notifications', async (req, res) => {
 // ── Warranty / AMC ─────────────────────────────────────────────────────────
 router.get('/warranty', async (req, res) => {
   try {
-    const cid = req.customer.customerId;
-    const cid_lower = cid.toLowerCase();
-    // Elevators with warranty info for this customer
-    const elevators = await Elevator.find({ customer: { $regex: cid, $options: 'i' } },
+    const cname = req.customer.companyName;
+    const elevators = await Elevator.find({ customer: { $regex: cname, $options: 'i' } },
       'elevatorId site warrantyExpiry status nextService');
     res.json(elevators);
   } catch (err) { res.status(500).json({ message: err.message }); }
