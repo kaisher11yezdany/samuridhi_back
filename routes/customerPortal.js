@@ -160,4 +160,21 @@ router.put('/profile', async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
+router.post('/change-password', async (req, res) => {
+  try {
+    const CustomerUser = require('../models/CustomerUser');
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword)
+      return res.status(400).json({ message: 'currentPassword and newPassword are required' });
+    if (newPassword.length < 6)
+      return res.status(400).json({ message: 'New password must be at least 6 characters' });
+    const user = await CustomerUser.findById(req.customer.id);
+    if (!user || !(await user.matchPassword(currentPassword)))
+      return res.status(401).json({ message: 'Current password is incorrect' });
+    user.password = newPassword;
+    await user.save();
+    res.json({ message: 'Password updated successfully' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 module.exports = router;
